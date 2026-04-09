@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crane Scale Logger</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --panel: #111418;
+    --border: #1e2530;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --warn: #ff4444;
+    --text: #c8d4e0;
+    --muted: #4a5568;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 400;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .logo span {
+    color: var(--muted);
+  }
+
+  #status-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 5px 12px;
+    border-radius: 2px;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+
+  #status-badge.connected {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,229,160,0.2);
+  }
+
+  #status-badge.connecting {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    animation: pulse 1s infinite;
+  }
+
+  #status-badge.error {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Big weight display */
+  .weight-panel {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 36px;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+  }
+
+  .weight-panel::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .weight-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  #weight-display {
+    font-family: var(--mono);
+    font-size: 88px;
+    line-height: 1;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(0,229,160,0.4);
+    letter-spacing: -0.02em;
+    transition: all 0.2s;
+    min-height: 88px;
+  }
+
+  #weight-display.idle {
+    color: var(--muted);
+    text-shadow: none;
+  }
+
+  #weight-display.flash {
+    animation: weightFlash 0.4s ease-out;
+  }
+
+  @keyframes weightFlash {
+    0% { color: #fff; text-shadow: 0 0 60px rgba(255,255,255,0.8); }
+    100% { color: var(--accent); text-shadow: 0 0 40px rgba(0,229,160,0.4); }
+  }
+
+  .weight-unit {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  #last-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 14px;
+    min-height: 16px;
+  }
+
+  /* Control panel */
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .controls h2 {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: var(--mono);
+    margin-bottom: 4px;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    border: 1px solid;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .btn-connect {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-connect:hover {
+    background: rgba(0,229,160,0.1);
+    box-shadow: 0 0 16px rgba(0,229,160,0.15);
+  }
+
+  .btn-connect:disabled {
+    border-color: var(--muted);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .btn-disconnect {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  .btn-disconnect:hover {
+    background: rgba(255,68,68,0.1);
+  }
+
+  .btn-export {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .btn-export:hover {
+    background: rgba(0,153,255,0.1);
+    box-shadow: 0 0 16px rgba(0,153,255,0.15);
+  }
+
+  .btn-export:disabled {
+    border-color: var(--muted);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  .btn-clear {
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+
+  .btn-clear:hover {
+    background: rgba(74,85,104,0.2);
+  }
+
+  /* Stats */
+  .stats-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .stats-panel h2 {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: var(--mono);
+    margin-bottom: 16px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-row:last-child { border-bottom: none; }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--text);
+  }
+
+  .stat-value.highlight { color: var(--accent); }
+
+  /* Log table */
+  .log-panel {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .log-header h2 {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: var(--mono);
+  }
+
+  #log-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+
+  .log-table-wrapper {
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
+  .log-table-wrapper::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .log-table-wrapper::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+
+  .log-table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  thead {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    z-index: 10;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 24px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  td {
+    padding: 11px 24px;
+    border-bottom: 1px solid rgba(30,37,48,0.6);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr.new-row td {
+    animation: rowIn 0.4s ease-out;
+  }
+
+  @keyframes rowIn {
+    from {
+      background: rgba(0,229,160,0.12);
+      color: #fff;
+    }
+    to {
+      background: transparent;
+      color: var(--text);
+    }
+  }
+
+  .weight-cell {
+    color: var(--accent);
+    font-size: 16px;
+  }
+
+  .raw-cell {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .empty-log {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Raw feed */
+  .raw-panel {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+
+  .raw-panel details summary {
+    padding: 14px 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .raw-panel details[open] summary {
+    border-bottom-color: var(--border);
+  }
+
+  .raw-panel summary::marker,
+  .raw-panel summary::-webkit-details-marker { display: none; }
+
+  .raw-panel summary::after {
+    content: ' [expand]';
+    color: var(--accent2);
+  }
+
+  .raw-panel details[open] summary::after {
+    content: ' [collapse]';
+  }
+
+  #raw-feed {
+    padding: 14px 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    max-height: 140px;
+    overflow-y: auto;
+    line-height: 1.8;
+  }
+
+  #raw-feed::-webkit-scrollbar { width: 4px; }
+  #raw-feed::-webkit-scrollbar-track { background: var(--bg); }
+  #raw-feed::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .raw-line { display: block; }
+  .raw-line.weight-packet { color: var(--accent); }
+
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CRANE<span>//</span>SCALE&nbsp;LOGGER</div>
+  <div id="status-badge">DISCONNECTED</div>
+</header>
+
+<main>
+
+  <!-- Weight display -->
+  <div class="weight-panel">
+    <div class="weight-label">Current Reading</div>
+    <div id="weight-display" class="idle">--.-</div>
+    <div class="weight-unit">kg</div>
+    <div id="last-time"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <h2>Connection</h2>
+    <button class="btn btn-connect" id="btn-connect" onclick="connectScale()">
+      ▶ Connect to Scale
+    </button>
+    <button class="btn btn-disconnect" id="btn-disconnect" onclick="disconnectScale()" style="display:none">
+      ■ Disconnect
+    </button>
+    <h2 style="margin-top:8px">Data</h2>
+    <button class="btn btn-export" id="btn-export" onclick="exportCSV()" disabled>
+      ↓ Export CSV
+    </button>
+    <button class="btn btn-clear" onclick="clearLog()">
+      ✕ Clear Log
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-panel">
+    <h2>Session Stats</h2>
+    <div class="stat-row">
+      <span class="stat-label">Readings</span>
+      <span class="stat-value highlight" id="stat-count">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Min</span>
+      <span class="stat-value" id="stat-min">--</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Max</span>
+      <span class="stat-value" id="stat-max">--</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Average</span>
+      <span class="stat-value" id="stat-avg">--</span>
+    </div>
+  </div>
+
+  <!-- Log table -->
+  <div class="log-panel">
+    <div class="log-header">
+      <h2>Reading Log</h2>
+      <span id="log-count">0 readings</span>
+    </div>
+    <div class="log-table-wrapper" id="log-wrapper">
+      <div class="empty-log" id="empty-msg">Waiting for readings...</div>
+      <table id="log-table" style="display:none">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timestamp</th>
+            <th>Weight (kg)</th>
+            <th>lbs</th>
+            <th>st / lbs</th>
+            <th>Raw Bytes</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Raw feed -->
+  <div class="raw-panel">
+    <details>
+      <summary>Raw BLE Feed</summary>
+      <div id="raw-feed"><span style="color:var(--muted)">// BLE notifications will appear here</span></div>
+    </details>
+  </div>
+
+</main>
+
+<footer>
+  CRANE AES-CDSC-1 &nbsp;|&nbsp; BLE CHARACTERISTIC 0000FFE1 &nbsp;|&nbsp; CHROME / EDGE ONLY
+</footer>
+
+<script>
+  // ── BLE config ──────────────────────────────────────────────────────────────
+  const SERVICE_UUID        = '0000ffe0-0000-1000-8000-00805f9b34fb';
+  const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+  // ── State ────────────────────────────────────────────────────────────────────
+  let device = null;
+  let characteristic = null;
+  let readings = [];
+  let rowCounter = 0;
+
+  // ── BLE connect ──────────────────────────────────────────────────────────────
+  async function connectScale() {
+    if (!navigator.bluetooth) {
+      setStatus('error', 'WEB BLUETOOTH NOT SUPPORTED');
+      alert('Web Bluetooth is not supported.\nUse Chrome or Edge on desktop/Android.');
+      return;
+    }
+
+    setStatus('connecting', 'SCANNING...');
+    document.getElementById('btn-connect').disabled = true;
+
+    try {
+      device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [SERVICE_UUID] }],
+        // Also accept devices advertising the f000 service
+        optionalServices: ['f000ffc0-0451-4000-b000-000000000000']
+      });
+
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+
+      setStatus('connecting', 'CONNECTING...');
+      const server  = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+      characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+      await characteristic.startNotifications();
+      characteristic.addEventListener('characteristicvaluechanged', onData);
+
+      setStatus('connected', 'CONNECTED');
+      document.getElementById('btn-connect').style.display = 'none';
+      document.getElementById('btn-disconnect').style.display = 'block';
+      addRawLine(`// Connected to ${device.name || 'Crane Scale'}`, false);
+
+    } catch (err) {
+      console.error(err);
+      setStatus('error', 'ERROR');
+      document.getElementById('btn-connect').disabled = false;
+      if (err.name !== 'NotFoundError') {
+        addRawLine(`// Error: ${err.message}`, false);
+      } else {
+        setStatus('', 'DISCONNECTED');
+      }
+    }
+  }
+
+  function disconnectScale() {
+    if (device && device.gatt.connected) {
+      device.gatt.disconnect();
+    }
+  }
+
+  function onDisconnected() {
+    setStatus('', 'DISCONNECTED');
+    document.getElementById('btn-connect').style.display = 'block';
+    document.getElementById('btn-connect').disabled = false;
+    document.getElementById('btn-disconnect').style.display = 'none';
+    addRawLine('// Disconnected', false);
+  }
+
+  // ── Data parsing ─────────────────────────────────────────────────────────────
+  function onData(event) {
+    const value = event.target.value;
+    const bytes = [];
+    for (let i = 0; i < value.byteLength; i++) {
+      bytes.push(value.getUint8(i));
+    }
+
+    const hex = bytes.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('-');
+    const isWeight = bytes[0] === 0xE7 && bytes[1] === 0x58 && bytes.length >= 5;
+
+    addRawLine(`${new Date().toLocaleTimeString()}  ${hex}`, isWeight);
+
+    if (isWeight) {
+      // Weight = bytes[3] and bytes[4] big-endian, divided by 20
+      const raw = (bytes[3] << 8) | bytes[4];
+      const kg  = raw / 20;
+      logReading(kg, hex);
+    }
+  }
+
+  // ── Logging ───────────────────────────────────────────────────────────────────
+  function logReading(kg, rawHex) {
+    const now = new Date();
+    const ts  = now.toLocaleString('en-GB');
+
+    const lbs = (kg * 2.20462).toFixed(1);
+    const totalLbs = kg * 2.20462;
+    const stone = Math.floor(totalLbs / 14);
+    const remainLbs = (totalLbs % 14).toFixed(1);
+    const stStr = `${stone} st ${remainLbs}`;
+
+    readings.push({ ts, kg, lbs, st: stStr, rawHex });
+
+    // Update big display
+    const display = document.getElementById('weight-display');
+    display.textContent = kg.toFixed(1);
+    display.classList.remove('idle', 'flash');
+    void display.offsetWidth; // reflow to restart animation
+    display.classList.add('flash');
+    document.getElementById('last-time').textContent = `Last reading: ${ts}`;
+
+    // Update stats
+    updateStats();
+
+    // Add table row
+    rowCounter++;
+    const tbody = document.getElementById('log-tbody');
+    const tr = document.createElement('tr');
+    tr.className = 'new-row';
+    tr.innerHTML = `
+      <td>${rowCounter}</td>
+      <td>${ts}</td>
+      <td class="weight-cell">${kg.toFixed(1)}</td>
+      <td>${lbs}</td>
+      <td>${stStr}</td>
+      <td class="raw-cell">${rawHex}</td>
+    `;
+    // Insert at top
+    tbody.insertBefore(tr, tbody.firstChild);
+
+    document.getElementById('empty-msg').style.display  = 'none';
+    document.getElementById('log-table').style.display  = 'table';
+    document.getElementById('log-count').textContent    = `${readings.length} reading${readings.length !== 1 ? 's' : ''}`;
+    document.getElementById('btn-export').disabled      = false;
+  }
+
+  function updateStats() {
+    const weights = readings.map(r => r.kg);
+    const count   = weights.length;
+    const min     = Math.min(...weights).toFixed(1);
+    const max     = Math.max(...weights).toFixed(1);
+    const avg     = (weights.reduce((a,b) => a+b, 0) / count).toFixed(1);
+
+    document.getElementById('stat-count').textContent = count;
+    document.getElementById('stat-min').textContent   = `${min} kg`;
+    document.getElementById('stat-max').textContent   = `${max} kg`;
+    document.getElementById('stat-avg').textContent   = `${avg} kg`;
+  }
+
+  // ── Export CSV ────────────────────────────────────────────────────────────────
+  function exportCSV() {
+    if (readings.length === 0) return;
+
+    const header = 'No,Timestamp,Weight (kg),Weight (lbs),Weight (st lbs),Raw Bytes\n';
+    const rows   = readings.map((r, i) =>
+      `${i+1},"${r.ts}",${r.kg},${r.lbs},"${r.st}","${r.rawHex}"`
+    ).join('\n');
+
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `crane-scale-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Clear log ─────────────────────────────────────────────────────────────────
+  function clearLog() {
+    if (readings.length > 0 && !confirm('Clear all readings?')) return;
+    readings   = [];
+    rowCounter = 0;
+    document.getElementById('log-tbody').innerHTML     = '';
+    document.getElementById('log-table').style.display = 'none';
+    document.getElementById('empty-msg').style.display = 'block';
+    document.getElementById('log-count').textContent   = '0 readings';
+    document.getElementById('btn-export').disabled     = true;
+    document.getElementById('stat-count').textContent  = '0';
+    document.getElementById('stat-min').textContent    = '--';
+    document.getElementById('stat-max').textContent    = '--';
+    document.getElementById('stat-avg').textContent    = '--';
+    document.getElementById('weight-display').textContent = '--.-';
+    document.getElementById('weight-display').className   = 'idle';
+    document.getElementById('last-time').textContent   = '';
+  }
+
+  // ── Raw feed ──────────────────────────────────────────────────────────────────
+  function addRawLine(text, isWeight) {
+    const feed  = document.getElementById('raw-feed');
+    const span  = document.createElement('span');
+    span.className = 'raw-line' + (isWeight ? ' weight-packet' : '');
+    span.textContent = text;
+    feed.appendChild(span);
+    // Keep last 80 lines
+    while (feed.children.length > 80) feed.removeChild(feed.firstChild);
+    feed.scrollTop = feed.scrollHeight;
+  }
+
+  // ── Status ────────────────────────────────────────────────────────────────────
+  function setStatus(cls, text) {
+    const badge = document.getElementById('status-badge');
+    badge.className = cls ? `${cls}` : '';
+    badge.textContent = text;
+  }
+</script>
+</body>
+</html>
