@@ -1,564 +1,678 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Crane Scale Logger</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
 
+  /* ── Theme tokens ── */
   :root {
-    --bg: #0a0c0f;
-    --panel: #111418;
-    --border: #1e2530;
-    --accent: #00e5a0;
-    --accent2: #0099ff;
-    --warn: #ff4444;
-    --text: #c8d4e0;
-    --muted: #4a5568;
-    --mono: 'Share Tech Mono', monospace;
-    --sans: 'Barlow Condensed', sans-serif;
+    --transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 20px;
+    /* comp metric colours (theme-independent) */
+    --c-fat:    #f97316;
+    --c-water:  #38bdf8;
+    --c-muscle: #a78bfa;
+    --c-bone:   #34d399;
+    --c-bmr:    #fbbf24;
+    --c-bmi:    #fb7185;
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [data-theme="dark"] {
+    --bg:        #0d1117;
+    --bg2:       #131921;
+    --panel:     #161d27;
+    --panel2:    #1c2535;
+    --border:    #242f3e;
+    --border2:   #2d3d52;
+    --text:      #dde5f0;
+    --text2:     #8a9ab3;
+    --muted:     #4e607a;
+    --accent:    #2dd4bf;
+    --accent-bg: rgba(45,212,191,0.08);
+    --accent2:   #60a5fa;
+    --accent2-bg:rgba(96,165,250,0.08);
+    --accent3:   #fbbf24;
+    --warn:      #f87171;
+    --success:   #4ade80;
+    --shadow:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+    --shadow-lg: 0 2px 8px rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.4);
+    --glow:      0 0 0 1px rgba(45,212,191,0.2), 0 0 24px rgba(45,212,191,0.1);
+  }
+
+  [data-theme="light"] {
+    --bg:        #f0f4f8;
+    --bg2:       #e8eef5;
+    --panel:     #ffffff;
+    --panel2:    #f7fafc;
+    --border:    #dde5ef;
+    --border2:   #c8d5e3;
+    --text:      #111827;
+    --text2:     #4b5a6e;
+    --muted:     #8fa0b5;
+    --accent:    #0d9488;
+    --accent-bg: rgba(13,148,136,0.07);
+    --accent2:   #2563eb;
+    --accent2-bg:rgba(37,99,235,0.07);
+    --accent3:   #d97706;
+    --warn:      #dc2626;
+    --success:   #16a34a;
+    --shadow:    0 1px 3px rgba(15,23,42,0.07), 0 4px 16px rgba(15,23,42,0.05);
+    --shadow-lg: 0 2px 8px rgba(15,23,42,0.09), 0 12px 40px rgba(15,23,42,0.07);
+    --glow:      0 0 0 1px rgba(13,148,136,0.2), 0 0 24px rgba(13,148,136,0.07);
+  }
+
+  /* ── Reset ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: var(--sans);
+    font-family: 'Figtree', sans-serif;
     font-weight: 400;
+    font-size: 15px;
+    line-height: 1.5;
     min-height: 100vh;
     overflow-x: hidden;
+    transition: var(--transition);
   }
 
-  /* Scanline overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.08) 2px,
-      rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none;
-    z-index: 1000;
-  }
-
+  /* ── Header ── */
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
     background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    position: sticky; top: 0; z-index: 100;
+    transition: var(--transition);
   }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
 
   .logo {
-    font-family: var(--mono);
-    font-size: 13px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 17px;
     color: var(--accent);
-    letter-spacing: 0.15em;
+    letter-spacing: -0.01em;
     text-transform: uppercase;
   }
+  .logo em { color: var(--muted); font-style: normal; font-weight: 700; }
 
-  .logo span {
-    color: var(--muted);
-  }
+  .header-right { display: flex; align-items: center; gap: 12px; }
 
   #status-badge {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    padding: 5px 12px;
-    border-radius: 2px;
-    border: 1px solid var(--muted);
-    color: var(--muted);
-    text-transform: uppercase;
-    transition: all 0.3s;
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.03em; padding: 5px 12px 5px 10px;
+    border-radius: 99px; border: 1px solid var(--border2);
+    color: var(--text2); text-transform: uppercase;
+    transition: var(--transition);
+    background: var(--panel2);
+  }
+  #status-badge::before {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #status-badge.connected  {
+    border-color: var(--accent); color: var(--accent); background: var(--accent-bg);
+  }
+  #status-badge.connected::before  { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: dotPulse 2s infinite; }
+  #status-badge.connecting { border-color: var(--accent2); color: var(--accent2); background: var(--accent2-bg); }
+  #status-badge.connecting::before { background: var(--accent2); animation: dotBlink 0.8s infinite; }
+  #status-badge.error      { border-color: var(--warn); color: var(--warn); }
+  #status-badge.error::before      { background: var(--warn); }
+
+  @keyframes dotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.8)} }
+  @keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* Theme toggle */
+  #theme-toggle {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border2);
+    background: var(--panel2); color: var(--text2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: var(--transition);
+    flex-shrink: 0;
+  }
+  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+  /* ── Nav tabs ── */
+  nav {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 24px;
+    gap: 4px;
+    transition: var(--transition);
   }
 
-  #status-badge.connected {
-    border-color: var(--accent);
-    color: var(--accent);
-    box-shadow: 0 0 12px rgba(0,229,160,0.2);
+  .tab {
+    font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 13px 18px; cursor: pointer; color: var(--text2);
+    border: none; border-bottom: 2px solid transparent;
+    background: none; transition: all 0.2s;
+    letter-spacing: 0.01em;
   }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 
-  #status-badge.connecting {
-    border-color: var(--accent2);
-    color: var(--accent2);
-    animation: pulse 1s infinite;
-  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
-  #status-badge.error {
-    border-color: var(--warn);
-    color: var(--warn);
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
+  /* ── Main grid ── */
   main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 28px 20px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    max-width: 980px; margin: 0 auto; padding: 24px 20px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   }
 
-  /* Big weight display */
-  .weight-panel {
-    grid-column: 1 / -1;
+  /* ── Cards ── */
+  .panel {
     background: var(--panel);
     border: 1px solid var(--border);
-    padding: 36px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: var(--transition);
     position: relative;
     overflow: hidden;
+  }
+
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .panel-body { padding: 20px; }
+
+  /* ── Weight hero panel ── */
+  .weight-panel {
+    grid-column: 1 / -1;
     text-align: center;
+    padding: 36px 28px 32px;
+    background: var(--panel);
   }
-
-  .weight-panel::after {
+  .weight-panel::before {
     content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 50% 50%, var(--accent-bg) 0%, transparent 70%);
+    pointer-events: none;
   }
 
-  .weight-label {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
+  #active-user-display {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent2); margin-bottom: 12px; min-height: 18px;
     text-transform: uppercase;
-    margin-bottom: 12px;
   }
-
+  .weight-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 8px;
+  }
   #weight-display {
-    font-family: var(--mono);
-    font-size: 88px;
-    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 96px; line-height: 1;
     color: var(--accent);
-    text-shadow: 0 0 40px rgba(0,229,160,0.4);
-    letter-spacing: -0.02em;
-    transition: all 0.2s;
-    min-height: 88px;
+    letter-spacing: -0.03em;
+    min-height: 96px;
+    transition: color 0.3s;
   }
-
-  #weight-display.idle {
-    color: var(--muted);
-    text-shadow: none;
-  }
-
-  #weight-display.flash {
-    animation: weightFlash 0.4s ease-out;
-  }
+  #weight-display.idle { color: var(--muted); }
 
   @keyframes weightFlash {
-    0% { color: #fff; text-shadow: 0 0 60px rgba(255,255,255,0.8); }
-    100% { color: var(--accent); text-shadow: 0 0 40px rgba(0,229,160,0.4); }
+    0%   { opacity: 0.4; transform: scale(1.04); }
+    100% { opacity: 1;   transform: scale(1); }
   }
+  #weight-display.flash { animation: weightFlash 0.35s ease-out; }
 
-  .weight-unit {
-    font-family: var(--mono);
-    font-size: 22px;
-    color: var(--muted);
-    margin-top: 6px;
+  .weight-meta {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    margin-top: 10px; flex-wrap: wrap;
   }
-
+  .weight-unit-main {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 500; color: var(--text2);
+  }
+  .weight-conversions {
+    display: flex; gap: 14px;
+  }
+  .weight-conv {
+    font-size: 13px; color: var(--muted);
+    background: var(--panel2); border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace;
+  }
   #last-time {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 14px;
-    min-height: 16px;
+    font-size: 11px; color: var(--muted); margin-top: 14px; min-height: 16px;
+    letter-spacing: 0.02em;
   }
 
-  /* Control panel */
-  .controls {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .controls h2 {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-transform: uppercase;
-    font-family: var(--mono);
-    margin-bottom: 4px;
-  }
-
+  /* ── Buttons ── */
   .btn {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 12px 20px;
-    border: 1px solid;
-    background: transparent;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
+    font-family: 'Figtree', sans-serif; font-size: 13px; font-weight: 600;
+    letter-spacing: 0.02em; padding: 10px 18px;
+    border-radius: var(--radius-sm); border: 1px solid; background: transparent;
+    cursor: pointer; transition: all 0.2s; width: 100%; display: block;
   }
+  .btn + .btn { margin-top: 8px; }
 
   .btn-connect {
-    border-color: var(--accent);
-    color: var(--accent);
+    border-color: var(--accent); color: var(--accent);
+    background: var(--accent-bg);
   }
-
-  .btn-connect:hover {
-    background: rgba(0,229,160,0.1);
-    box-shadow: 0 0 16px rgba(0,229,160,0.15);
-  }
-
-  .btn-connect:disabled {
-    border-color: var(--muted);
-    color: var(--muted);
-    cursor: not-allowed;
-  }
+  .btn-connect:hover    { background: rgba(45,212,191,0.16); box-shadow: 0 0 0 1px var(--accent); }
+  .btn-connect:disabled { border-color: var(--border2); color: var(--muted); background: transparent; cursor: not-allowed; }
 
   .btn-disconnect {
-    border-color: var(--warn);
-    color: var(--warn);
+    border-color: var(--warn); color: var(--warn);
   }
-
-  .btn-disconnect:hover {
-    background: rgba(255,68,68,0.1);
-  }
+  .btn-disconnect:hover { background: rgba(248,113,113,0.1); }
 
   .btn-export {
-    border-color: var(--accent2);
-    color: var(--accent2);
+    border-color: var(--accent2); color: var(--accent2);
+    background: var(--accent2-bg);
   }
+  .btn-export:hover     { background: rgba(96,165,250,0.16); box-shadow: 0 0 0 1px var(--accent2); }
+  .btn-export:disabled  { border-color: var(--border2); color: var(--muted); background: transparent; cursor: not-allowed; }
 
-  .btn-export:hover {
-    background: rgba(0,153,255,0.1);
-    box-shadow: 0 0 16px rgba(0,153,255,0.15);
+  .btn-send {
+    border-color: var(--accent3); color: var(--accent3);
   }
-
-  .btn-export:disabled {
-    border-color: var(--muted);
-    color: var(--muted);
-    cursor: not-allowed;
-  }
+  .btn-send:hover       { background: rgba(251,191,36,0.1); }
+  .btn-send:disabled    { border-color: var(--border2); color: var(--muted); cursor: not-allowed; }
 
   .btn-clear {
-    border-color: var(--muted);
-    color: var(--muted);
+    border-color: var(--border2); color: var(--text2); background: var(--panel2);
+  }
+  .btn-clear:hover { background: var(--bg2); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
   }
 
-  .btn-clear:hover {
-    background: rgba(74,85,104,0.2);
+  /* ── User selector ── */
+  .user-select-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+  .user-btn {
+    font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 6px 14px; border-radius: 99px;
+    border: 1px solid var(--border2); background: var(--panel2); color: var(--text2);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .user-btn:hover { border-color: var(--muted); color: var(--text); }
+  .user-btn.active      { border-color: var(--accent2); color: var(--accent2); background: var(--accent2-bg); }
+  .user-btn.has-profile { border-color: var(--accent);  color: var(--accent); background: var(--accent-bg); }
+  .user-btn.has-profile.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  /* ── Body comp grid ── */
+  .comp-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .comp-cell {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 14px 12px; text-align: center;
+    transition: var(--transition);
+  }
+  .comp-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 6px;
+  }
+  .comp-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 500; color: var(--accent2);
+    line-height: 1.2;
+  }
+  .comp-value.zero { color: var(--muted); }
+
+  /* Per-metric accent colours */
+  #comp-fat.comp-value    { color: var(--c-fat); }
+  #comp-water.comp-value  { color: var(--c-water); }
+  #comp-muscle.comp-value { color: var(--c-muscle); }
+  #comp-bone.comp-value   { color: var(--c-bone); }
+  #comp-bmr.comp-value    { color: var(--c-bmr); }
+  #comp-bmi.comp-value    { color: var(--c-bmi); }
+
+  #comp-note {
+    margin-top: 12px;
+    font-size: 11px; color: var(--muted); text-align: center;
+    line-height: 1.5;
   }
 
-  /* Stats */
-  .stats-panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 24px;
-  }
-
-  .stats-panel h2 {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-transform: uppercase;
-    font-family: var(--mono);
-    margin-bottom: 16px;
-  }
-
+  /* ── Stats ── */
   .stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
   }
+  .stat-row:last-of-type { border-bottom: none; }
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--text); }
+  .stat-value.hl { color: var(--accent); }
 
-  .stat-row:last-child { border-bottom: none; }
+  /* ── Log table ── */
+  .log-panel { grid-column: 1 / -1; }
+  .log-table-wrapper { max-height: 320px; overflow-y: auto; }
+  .log-table-wrapper::-webkit-scrollbar { width: 5px; }
+  .log-table-wrapper::-webkit-scrollbar-track { background: transparent; }
+  .log-table-wrapper::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-  .stat-label {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .stat-value {
-    font-family: var(--mono);
-    font-size: 18px;
-    color: var(--text);
-  }
-
-  .stat-value.highlight { color: var(--accent); }
-
-  /* Log table */
-  .log-panel {
-    grid-column: 1 / -1;
-    background: var(--panel);
-    border: 1px solid var(--border);
-  }
-
-  .log-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .log-header h2 {
-    font-size: 11px;
-    letter-spacing: 0.2em;
-    color: var(--muted);
-    text-transform: uppercase;
-    font-family: var(--mono);
-  }
-
-  #log-count {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 0.1em;
-  }
-
-  .log-table-wrapper {
-    max-height: 340px;
-    overflow-y: auto;
-  }
-
-  .log-table-wrapper::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .log-table-wrapper::-webkit-scrollbar-track {
-    background: var(--bg);
-  }
-
-  .log-table-wrapper::-webkit-scrollbar-thumb {
-    background: var(--border);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--mono);
-    font-size: 13px;
-  }
-
-  thead {
-    position: sticky;
-    top: 0;
-    background: var(--panel);
-    z-index: 10;
-  }
-
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { position: sticky; top: 0; background: var(--panel); z-index: 10; }
   th {
-    text-align: left;
-    padding: 10px 24px;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-transform: uppercase;
+    text-align: left; padding: 10px 14px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--muted); text-transform: uppercase;
     border-bottom: 1px solid var(--border);
-    font-weight: 400;
   }
-
-  td {
-    padding: 11px 24px;
-    border-bottom: 1px solid rgba(30,37,48,0.6);
-    color: var(--text);
-    vertical-align: middle;
-  }
-
-  tr:last-child td { border-bottom: none; }
-
-  tr.new-row td {
-    animation: rowIn 0.4s ease-out;
-  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tbody tr:hover td { background: var(--panel2); }
+  tbody tr:last-child td { border-bottom: none; }
 
   @keyframes rowIn {
-    from {
-      background: rgba(0,229,160,0.12);
-      color: #fff;
-    }
-    to {
-      background: transparent;
-      color: var(--text);
-    }
+    from { background: var(--accent-bg); }
+    to   { background: transparent; }
   }
+  tr.new-row td { animation: rowIn 0.6s ease-out; }
 
   .weight-cell {
-    color: var(--accent);
-    font-size: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent); font-size: 14px; font-weight: 500;
   }
-
-  .raw-cell {
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 0.05em;
-  }
+  .user-cell   { color: var(--accent2); font-weight: 600; }
+  .raw-cell    { font-family: 'JetBrains Mono', monospace; color: var(--muted); font-size: 10px; }
+  .comp-td     { font-family: 'JetBrains Mono', monospace; color: var(--accent3); }
+  .comp-td.estimated { color: var(--muted); font-style: italic; }
 
   .empty-log {
-    text-align: center;
-    padding: 48px 24px;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    text-align: center; padding: 48px 20px; color: var(--muted);
+    font-size: 13px; letter-spacing: 0.05em;
   }
+  .empty-log svg { display: block; margin: 0 auto 12px; opacity: 0.3; }
 
-  /* Raw feed */
-  .raw-panel {
-    grid-column: 1 / -1;
-    background: var(--panel);
-    border: 1px solid var(--border);
-  }
-
+  /* ── Raw BLE feed ── */
+  .raw-panel { grid-column: 1 / -1; }
   .raw-panel details summary {
-    padding: 14px 24px;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    color: var(--muted);
-    text-transform: uppercase;
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.2s;
+    padding: 12px 20px; font-size: 12px; font-weight: 600;
+    color: var(--text2); cursor: pointer; list-style: none;
+    user-select: none; border-bottom: 1px solid transparent;
+    transition: border-color 0.2s, color 0.2s;
+    display: flex; align-items: center; gap: 8px;
   }
-
-  .raw-panel details[open] summary {
-    border-bottom-color: var(--border);
-  }
-
-  .raw-panel summary::marker,
-  .raw-panel summary::-webkit-details-marker { display: none; }
-
-  .raw-panel summary::after {
-    content: ' [expand]';
-    color: var(--accent2);
-  }
-
-  .raw-panel details[open] summary::after {
-    content: ' [collapse]';
-  }
+  .raw-panel details[open] summary { border-bottom-color: var(--border); color: var(--text); }
+  .raw-panel summary::marker, .raw-panel summary::-webkit-details-marker { display: none; }
+  .raw-panel summary::before { content: '›'; font-size: 16px; color: var(--muted); transition: transform 0.2s; display: inline-block; }
+  .raw-panel details[open] summary::before { transform: rotate(90deg); }
 
   #raw-feed {
-    padding: 14px 24px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    max-height: 140px;
-    overflow-y: auto;
-    line-height: 1.8;
+    padding: 12px 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); max-height: 140px; overflow-y: auto; line-height: 2;
   }
-
   #raw-feed::-webkit-scrollbar { width: 4px; }
-  #raw-feed::-webkit-scrollbar-track { background: var(--bg); }
-  #raw-feed::-webkit-scrollbar-thumb { background: var(--border); }
-
+  #raw-feed::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   .raw-line { display: block; }
   .raw-line.weight-packet { color: var(--accent); }
+  .raw-line.comp-packet   { color: var(--accent2); }
+  .raw-line.write-packet  { color: var(--accent3); }
 
+  /* ── Profiles tab ── */
+  .profiles-wrap {
+    max-width: 980px; margin: 0 auto; padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+
+  .user-tabs { display: flex; gap: 6px; padding: 16px 20px 0; flex-wrap: wrap; }
+  .user-tab {
+    font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 7px 18px; border-radius: 99px;
+    border: 1px solid var(--border2); background: var(--panel2); color: var(--text2);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .user-tab:hover { border-color: var(--muted); color: var(--text); }
+  .user-tab.active   { border-color: var(--accent2); color: var(--accent2); background: var(--accent2-bg); }
+  .user-tab.has-data { border-color: var(--accent);  color: var(--accent); background: var(--accent-bg); }
+  .user-tab.has-data.active { box-shadow: 0 0 0 1px var(--accent); }
+
+  .user-form { padding: 20px; display: none; }
+  .user-form.active { display: block; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+
+  .field label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--text2); text-transform: uppercase;
+  }
+  .field input, .field select {
+    background: var(--panel2); border: 1px solid var(--border2); color: var(--text);
+    font-family: 'Figtree', sans-serif; font-size: 14px; font-weight: 400;
+    padding: 10px 14px; width: 100%; border-radius: var(--radius-sm);
+    transition: border-color 0.2s, box-shadow 0.2s; appearance: none;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--accent2);
+    box-shadow: 0 0 0 3px var(--accent2-bg);
+  }
+  .field select option { background: var(--panel); }
+
+  .form-actions { margin-top: 18px; display: flex; gap: 10px; }
+  .form-actions .btn { width: auto; flex: 1; }
+
+  .profile-status {
+    font-size: 12px; margin-top: 14px;
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    color: var(--muted); min-height: 40px;
+    background: var(--panel2);
+    transition: var(--transition);
+  }
+  .profile-status.ok   { border-color: var(--accent);  color: var(--accent);  background: var(--accent-bg); }
+  .profile-status.warn { border-color: var(--accent3); color: var(--accent3); background: rgba(251,191,36,0.07); }
+  .profile-status.err  { border-color: var(--warn);    color: var(--warn);    background: rgba(248,113,113,0.07); }
+
+  /* ── Footer ── */
   footer {
-    text-align: center;
-    padding: 20px;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    border-top: 1px solid var(--border);
-    margin-top: 8px;
+    text-align: center; padding: 16px; font-size: 11px;
+    color: var(--muted); letter-spacing: 0.06em;
+    border-top: 1px solid var(--border); margin-top: 8px;
+    transition: var(--transition);
+  }
+
+  /* ── Warn flash (no user selected) ── */
+  @keyframes warnFlash {
+    0%,100% { box-shadow: none; }
+    30%,70% { box-shadow: 0 0 0 2px var(--warn); }
+  }
+  .user-select-row.warn-flash { animation: warnFlash 1.2s ease-out; border-radius: var(--radius-sm); }
+
+  /* ── Connection card layout ── */
+  .conn-status-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--panel2); border: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .conn-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--muted);
+    flex-shrink: 0; transition: background 0.3s;
+  }
+  .conn-dot.on  { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: dotPulse 2s infinite; }
+  .conn-dot.blink { background: var(--accent2); animation: dotBlink 0.8s infinite; }
+  .conn-status-text { font-size: 13px; font-weight: 600; color: var(--text2); }
+
+  /* ── Comp user label ── */
+  #comp-user-label {
+    font-size: 12px; font-weight: 600; color: var(--accent2);
+  }
+
+  /* ── Probe log ── */
+  #probe-log {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); max-height: 160px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 14px; line-height: 2; background: var(--panel2);
+    transition: var(--transition);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    main, .profiles-wrap { grid-template-columns: 1fr; }
+    .weight-panel, .log-panel, .raw-panel { grid-column: 1; }
+    #weight-display { font-size: 72px; }
+    .comp-grid { grid-template-columns: 1fr 1fr; }
+    header { padding: 12px 16px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">CRANE<span>//</span>SCALE&nbsp;LOGGER</div>
-  <div id="status-badge">DISCONNECTED</div>
+  <div class="header-left">
+    <div class="logo">Crane<em>/</em>Scale</div>
+    <div id="status-badge">Disconnected</div>
+  </div>
+  <div class="header-right">
+    <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme">☀</button>
+  </div>
 </header>
 
+<nav>
+  <button class="tab active" onclick="showTab('tab-logger', this)">Logger</button>
+  <button class="tab" onclick="showTab('tab-profiles', this)">User Profiles</button>
+</nav>
+
+<!-- ══════════════════════════════════════ LOGGER TAB -->
+<div id="tab-logger" class="tab-panel active">
 <main>
 
-  <!-- Weight display -->
-  <div class="weight-panel">
+  <!-- Weight hero -->
+  <div class="panel weight-panel">
+    <div id="active-user-display"></div>
     <div class="weight-label">Current Reading</div>
     <div id="weight-display" class="idle">--.-</div>
-    <div class="weight-unit">kg</div>
+    <div class="weight-meta">
+      <span class="weight-unit-main">kg</span>
+      <div class="weight-conversions">
+        <span class="weight-conv" id="weight-lbs">-- lbs</span>
+        <span class="weight-conv" id="weight-st">-- st</span>
+      </div>
+    </div>
     <div id="last-time"></div>
   </div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <h2>Connection</h2>
-    <button class="btn btn-connect" id="btn-connect" onclick="connectScale()">
-      ▶ Connect to Scale
-    </button>
-    <button class="btn btn-disconnect" id="btn-disconnect" onclick="disconnectScale()" style="display:none">
-      ■ Disconnect
-    </button>
-    <h2 style="margin-top:8px">Data</h2>
-    <button class="btn btn-export" id="btn-export" onclick="exportCSV()" disabled>
-      ↓ Export CSV
-    </button>
-    <button class="btn btn-clear" onclick="clearLog()">
-      ✕ Clear Log
-    </button>
-  </div>
-
-  <!-- Stats -->
-  <div class="stats-panel">
-    <h2>Session Stats</h2>
-    <div class="stat-row">
-      <span class="stat-label">Readings</span>
-      <span class="stat-value highlight" id="stat-count">0</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Min</span>
-      <span class="stat-value" id="stat-min">--</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Max</span>
-      <span class="stat-value" id="stat-max">--</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Average</span>
-      <span class="stat-value" id="stat-avg">--</span>
+  <!-- Connection + user -->
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">Connection</span></div>
+    <div class="panel-body">
+      <div class="conn-status-row">
+        <div class="conn-dot" id="conn-dot"></div>
+        <span class="conn-status-text" id="conn-status-text">Not connected</span>
+      </div>
+      <button class="btn btn-connect" id="btn-connect" onclick="connectScale()">Connect to Scale</button>
+      <button class="btn btn-disconnect" id="btn-disconnect" onclick="disconnectScale()" style="display:none">Disconnect</button>
+      <div style="margin-top:20px;margin-bottom:10px" class="section-label">Tag Reading As</div>
+      <div class="user-select-row">
+        <button class="user-btn active" id="ubtn-0" onclick="setActiveUser(0)">No Profile</button>
+        <button class="user-btn" id="ubtn-1" onclick="setActiveUser(1)">User 1</button>
+        <button class="user-btn" id="ubtn-2" onclick="setActiveUser(2)">User 2</button>
+        <button class="user-btn" id="ubtn-3" onclick="setActiveUser(3)">User 3</button>
+        <button class="user-btn" id="ubtn-4" onclick="setActiveUser(4)">User 4</button>
+      </div>
     </div>
   </div>
 
-  <!-- Log table -->
-  <div class="log-panel">
-    <div class="log-header">
-      <h2>Reading Log</h2>
-      <span id="log-count">0 readings</span>
+  <!-- Body composition -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Body Composition</span>
+      <span id="comp-user-label"></span>
     </div>
-    <div class="log-table-wrapper" id="log-wrapper">
-      <div class="empty-log" id="empty-msg">Waiting for readings...</div>
+    <div class="panel-body">
+      <div class="comp-grid">
+        <div class="comp-cell">
+          <div class="comp-label">Body Fat</div>
+          <div class="comp-value zero" id="comp-fat">--%</div>
+        </div>
+        <div class="comp-cell">
+          <div class="comp-label">Body Water</div>
+          <div class="comp-value zero" id="comp-water">--%</div>
+        </div>
+        <div class="comp-cell">
+          <div class="comp-label">Muscle</div>
+          <div class="comp-value zero" id="comp-muscle">--%</div>
+        </div>
+        <div class="comp-cell">
+          <div class="comp-label">Bone Mass</div>
+          <div class="comp-value zero" id="comp-bone">-- kg</div>
+        </div>
+        <div class="comp-cell">
+          <div class="comp-label">BMR</div>
+          <div class="comp-value zero" id="comp-bmr">-- kcal</div>
+        </div>
+        <div class="comp-cell">
+          <div class="comp-label">BMI</div>
+          <div class="comp-value zero" id="comp-bmi">--</div>
+        </div>
+      </div>
+      <div id="comp-note">Select a user profile and step on scale</div>
+    </div>
+  </div>
+
+  <!-- Session stats -->
+  <div class="panel">
+    <div class="panel-head"><span class="panel-title">Session Stats</span></div>
+    <div class="panel-body">
+      <div class="stat-row">
+        <span class="stat-label">Readings</span>
+        <span class="stat-value hl" id="stat-count">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Min</span>
+        <span class="stat-value" id="stat-min">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Max</span>
+        <span class="stat-value" id="stat-max">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Average</span>
+        <span class="stat-value" id="stat-avg">--</span>
+      </div>
+      <div style="margin-top:18px">
+        <button class="btn btn-export" id="btn-export" onclick="exportCSV()" disabled>↓ Export CSV</button>
+        <button class="btn btn-clear" onclick="clearLog()">Clear Log</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reading log -->
+  <div class="panel log-panel">
+    <div class="panel-head">
+      <span class="panel-title">Reading Log</span>
+      <span id="log-count" style="font-size:12px;font-weight:600;color:var(--accent)">0 readings</span>
+    </div>
+    <div class="log-table-wrapper">
+      <div class="empty-log" id="empty-msg">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Connect to scale to start logging
+      </div>
       <table id="log-table" style="display:none">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Timestamp</th>
-            <th>Weight (kg)</th>
-            <th>lbs</th>
-            <th>st / lbs</th>
-            <th>Raw Bytes</th>
+            <th>#</th><th>Time</th><th>User</th><th>kg</th><th>lbs</th><th>st</th>
+            <th>Fat%</th><th>Water%</th><th>Muscle%</th><th>Bone kg</th><th>BMR</th><th>Raw</th>
           </tr>
         </thead>
         <tbody id="log-tbody"></tbody>
@@ -566,8 +680,8 @@
     </div>
   </div>
 
-  <!-- Raw feed -->
-  <div class="raw-panel">
+  <!-- Raw BLE feed -->
+  <div class="panel raw-panel">
     <details>
       <summary>Raw BLE Feed</summary>
       <div id="raw-feed"><span style="color:var(--muted)">// BLE notifications will appear here</span></div>
@@ -575,216 +689,652 @@
   </div>
 
 </main>
+</div>
 
-<footer>
-  CRANE AES-CDSC-1 &nbsp;|&nbsp; BLE CHARACTERISTIC 0000FFE1 &nbsp;|&nbsp; CHROME / EDGE ONLY
-</footer>
+<!-- ══════════════════════════════════════ PROFILES TAB -->
+<div id="tab-profiles" class="tab-panel">
+<div class="profiles-wrap">
+
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">User Profiles — 4 slots</span>
+      <span style="font-size:11px;color:var(--muted)">Stored in browser · metric</span>
+    </div>
+    <div class="user-tabs" id="profile-user-tabs">
+      <button class="user-tab active" onclick="showUserForm(1, this)">User 1</button>
+      <button class="user-tab" onclick="showUserForm(2, this)">User 2</button>
+      <button class="user-tab" onclick="showUserForm(3, this)">User 3</button>
+      <button class="user-tab" onclick="showUserForm(4, this)">User 4</button>
+    </div>
+    <!-- Generated for users 1-4 -->
+    <div id="forms-container"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">E7-59 Body Comp Packet Probe</span>
+      <span style="font-size:11px;color:var(--muted)">Debug log</span>
+    </div>
+    <div class="panel-body">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.7">
+        After sending a profile and stepping on the scale, E7-59 packets appear below.
+        All-zero = scale did not accept profile. Non-zero = body comp data received.
+      </p>
+      <div id="probe-log">// Waiting for E7-59 packets...</div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<footer>Crane AES-CDSC-1 &nbsp;·&nbsp; BLE 0000FFE1 &nbsp;·&nbsp; Chrome / Edge only &nbsp;·&nbsp; Profiles stored in browser</footer>
 
 <script>
-  // ── BLE config ──────────────────────────────────────────────────────────────
-  const SERVICE_UUID        = '0000ffe0-0000-1000-8000-00805f9b34fb';
-  const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+// ── Config ────────────────────────────────────────────────────────────────────
+const SERVICE_UUID        = '0000ffe0-0000-1000-8000-00805f9b34fb';
+const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
-  // ── State ────────────────────────────────────────────────────────────────────
-  let device = null;
-  let characteristic = null;
-  let readings = [];
-  let rowCounter = 0;
+// ── State ─────────────────────────────────────────────────────────────────────
+let device         = null;
+let characteristic = null;
+let readings       = [];
+let rowCounter     = 0;
+let activeUser     = 0;
+let pendingWeight  = null;
+let pendingWeightHex = null;
+let pendingTimer   = null;
 
-  // ── BLE connect ──────────────────────────────────────────────────────────────
-  async function connectScale() {
-    if (!navigator.bluetooth) {
-      setStatus('error', 'WEB BLUETOOTH NOT SUPPORTED');
-      alert('Web Bluetooth is not supported.\nUse Chrome or Edge on desktop/Android.');
-      return;
-    }
-
-    setStatus('connecting', 'SCANNING...');
-    document.getElementById('btn-connect').disabled = true;
-
-    try {
-      device = await navigator.bluetooth.requestDevice({
-        filters: [{ services: [SERVICE_UUID] }],
-        // Also accept devices advertising the f000 service
-        optionalServices: ['f000ffc0-0451-4000-b000-000000000000']
-      });
-
-      device.addEventListener('gattserverdisconnected', onDisconnected);
-
-      setStatus('connecting', 'CONNECTING...');
-      const server  = await device.gatt.connect();
-      const service = await server.getPrimaryService(SERVICE_UUID);
-      characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-      await characteristic.startNotifications();
-      characteristic.addEventListener('characteristicvaluechanged', onData);
-
-      setStatus('connected', 'CONNECTED');
-      document.getElementById('btn-connect').style.display = 'none';
-      document.getElementById('btn-disconnect').style.display = 'block';
-      addRawLine(`// Connected to ${device.name || 'Crane Scale'}`, false);
-
-    } catch (err) {
-      console.error(err);
-      setStatus('error', 'ERROR');
-      document.getElementById('btn-connect').disabled = false;
-      if (err.name !== 'NotFoundError') {
-        addRawLine(`// Error: ${err.message}`, false);
-      } else {
-        setStatus('', 'DISCONNECTED');
-      }
-    }
-  }
-
-  function disconnectScale() {
-    if (device && device.gatt.connected) {
-      device.gatt.disconnect();
-    }
-  }
-
-  function onDisconnected() {
-    setStatus('', 'DISCONNECTED');
-    document.getElementById('btn-connect').style.display = 'block';
-    document.getElementById('btn-connect').disabled = false;
-    document.getElementById('btn-disconnect').style.display = 'none';
-    addRawLine('// Disconnected', false);
-  }
-
-  // ── Data parsing ─────────────────────────────────────────────────────────────
-  function onData(event) {
-    const value = event.target.value;
-    const bytes = [];
-    for (let i = 0; i < value.byteLength; i++) {
-      bytes.push(value.getUint8(i));
-    }
-
-    const hex = bytes.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('-');
-    const isWeight = bytes[0] === 0xE7 && bytes[1] === 0x58 && bytes.length >= 5;
-
-    addRawLine(`${new Date().toLocaleTimeString()}  ${hex}`, isWeight);
-
-    if (isWeight) {
-      // Weight = bytes[3] and bytes[4] big-endian, divided by 20
-      const raw = (bytes[3] << 8) | bytes[4];
-      const kg  = raw / 20;
-      logReading(kg, hex);
-    }
-  }
-
-  // ── Logging ───────────────────────────────────────────────────────────────────
-  function logReading(kg, rawHex) {
-    const now = new Date();
-    const ts  = now.toLocaleString('en-GB');
-
-    const lbs = (kg * 2.20462).toFixed(1);
-    const totalLbs = kg * 2.20462;
-    const stone = Math.floor(totalLbs / 14);
-    const remainLbs = (totalLbs % 14).toFixed(1);
-    const stStr = `${stone} st ${remainLbs}`;
-
-    readings.push({ ts, kg, lbs, st: stStr, rawHex });
-
-    // Update big display
-    const display = document.getElementById('weight-display');
-    display.textContent = kg.toFixed(1);
-    display.classList.remove('idle', 'flash');
-    void display.offsetWidth; // reflow to restart animation
-    display.classList.add('flash');
-    document.getElementById('last-time').textContent = `Last reading: ${ts}`;
-
-    // Update stats
-    updateStats();
-
-    // Add table row
-    rowCounter++;
-    const tbody = document.getElementById('log-tbody');
-    const tr = document.createElement('tr');
-    tr.className = 'new-row';
-    tr.innerHTML = `
-      <td>${rowCounter}</td>
-      <td>${ts}</td>
-      <td class="weight-cell">${kg.toFixed(1)}</td>
-      <td>${lbs}</td>
-      <td>${stStr}</td>
-      <td class="raw-cell">${rawHex}</td>
+// ── Build user forms dynamically ──────────────────────────────────────────────
+(function buildForms() {
+  const container = document.getElementById('forms-container');
+  for (let u = 1; u <= 4; u++) {
+    container.innerHTML += `
+      <div class="user-form ${u===1?'active':''}" id="form-user-${u}">
+        <div class="form-grid">
+          <div class="field full"><label>Name</label><input type="text" id="u${u}-name" placeholder="e.g. User ${u}"></div>
+          <div class="field">
+            <label>Gender</label>
+            <select id="u${u}-gender">
+              <option value="1">Male</option>
+              <option value="2">Female</option>
+            </select>
+          </div>
+          <div class="field"><label>Date of Birth</label><input type="date" id="u${u}-dob"></div>
+          <div class="field"><label>Height (cm)</label><input type="number" id="u${u}-height" min="100" max="220" placeholder="e.g. 180"></div>
+          <div class="field"><label>Weight (kg) — approx</label><input type="number" id="u${u}-weight" min="30" max="200" step="0.1" placeholder="e.g. 80.0"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-send" onclick="saveAndSendProfile(${u})">▶ Save &amp; Send to Scale</button>
+          <button class="btn btn-clear" onclick="clearProfile(${u})">✕ Clear</button>
+        </div>
+        <div class="profile-status" id="status-${u}">Not yet sent to scale</div>
+      </div>
     `;
-    // Insert at top
-    tbody.insertBefore(tr, tbody.firstChild);
+  }
+})();
 
-    document.getElementById('empty-msg').style.display  = 'none';
-    document.getElementById('log-table').style.display  = 'table';
-    document.getElementById('log-count').textContent    = `${readings.length} reading${readings.length !== 1 ? 's' : ''}`;
-    document.getElementById('btn-export').disabled      = false;
+// ── Profile storage ───────────────────────────────────────────────────────────
+function loadProfiles() {
+  for (let u = 1; u <= 4; u++) {
+    const saved = localStorage.getItem(`crane-user-${u}`);
+    if (!saved) continue;
+    const p = JSON.parse(saved);
+    document.getElementById(`u${u}-name`).value   = p.name   || '';
+    document.getElementById(`u${u}-gender`).value = p.gender || '1';
+    document.getElementById(`u${u}-dob`).value    = p.dob    || '';
+    document.getElementById(`u${u}-height`).value = p.height || '';
+    document.getElementById(`u${u}-weight`).value = p.weight || '';
+    markUserTab(u, true);
+  }
+  refreshUserButtons();
+}
+
+function saveProfile(u) {
+  const p = {
+    name:   document.getElementById(`u${u}-name`).value.trim(),
+    gender: document.getElementById(`u${u}-gender`).value,
+    dob:    document.getElementById(`u${u}-dob`).value,
+    height: document.getElementById(`u${u}-height`).value,
+    weight: document.getElementById(`u${u}-weight`).value,
+  };
+  localStorage.setItem(`crane-user-${u}`, JSON.stringify(p));
+  markUserTab(u, true);
+  refreshUserButtons();
+  return p;
+}
+
+function clearProfile(u) {
+  if (!confirm(`Clear User ${u}?`)) return;
+  localStorage.removeItem(`crane-user-${u}`);
+  ['name','gender','dob','height','weight'].forEach(f => {
+    const el = document.getElementById(`u${u}-${f}`);
+    el.value = f === 'gender' ? '1' : '';
+  });
+  markUserTab(u, false);
+  setProfileStatus(u, '', 'Not yet sent to scale');
+  refreshUserButtons();
+}
+
+function markUserTab(u, hasData) {
+  const tabs = document.querySelectorAll('#profile-user-tabs .user-tab');
+  tabs[u-1].classList.toggle('has-data', hasData);
+}
+
+function refreshUserButtons() {
+  for (let u = 1; u <= 4; u++) {
+    const saved = localStorage.getItem(`crane-user-${u}`);
+    const btn   = document.getElementById(`ubtn-${u}`);
+    if (saved) {
+      const p = JSON.parse(saved);
+      btn.textContent = p.name || `User ${u}`;
+      btn.classList.add('has-profile');
+    } else {
+      btn.textContent = `User ${u}`;
+      btn.classList.remove('has-profile');
+    }
+  }
+}
+
+function getAge(dob) {
+  if (!dob) return 30;
+  const today = new Date(), birth = new Date(dob);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return Math.max(10, Math.min(99, age));
+}
+
+// ── Build profile write command ───────────────────────────────────────────────
+// TI CC254x body comp scale format (Sanitas/Silvercrest family):
+// FE 06 [user_id 1-4] [gender 01=M 02=F] [age] [height cm] [weight*10 hi] [weight*10 lo] [activity 01] FF
+function buildProfileCommand(u, p) {
+  const userId   = u;
+  const gender   = parseInt(p.gender) || 1;
+  const age      = getAge(p.dob);
+  const height   = Math.round(parseFloat(p.height) || 170);
+  const wRaw     = Math.round((parseFloat(p.weight) || 70) * 10);
+  const wHi      = (wRaw >> 8) & 0xFF;
+  const wLo      = wRaw & 0xFF;
+  return new Uint8Array([0xFE, 0x06, userId, gender, age, height, wHi, wLo, 0x01, 0xFF]);
+}
+
+async function saveAndSendProfile(u) {
+  const p = saveProfile(u);
+
+  if (!p.height || !p.dob) {
+    setProfileStatus(u, 'warn', 'Fill in all fields (gender, DOB, height, weight) before sending');
+    return;
   }
 
-  function updateStats() {
-    const weights = readings.map(r => r.kg);
-    const count   = weights.length;
-    const min     = Math.min(...weights).toFixed(1);
-    const max     = Math.max(...weights).toFixed(1);
-    const avg     = (weights.reduce((a,b) => a+b, 0) / count).toFixed(1);
-
-    document.getElementById('stat-count').textContent = count;
-    document.getElementById('stat-min').textContent   = `${min} kg`;
-    document.getElementById('stat-max').textContent   = `${max} kg`;
-    document.getElementById('stat-avg').textContent   = `${avg} kg`;
+  if (!characteristic) {
+    const cmd = buildProfileCommand(u, p);
+    const hex = Array.from(cmd).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('-');
+    setProfileStatus(u, 'warn', `Profile saved. Connect to scale to send. Command will be: ${hex}`);
+    return;
   }
 
-  // ── Export CSV ────────────────────────────────────────────────────────────────
-  function exportCSV() {
-    if (readings.length === 0) return;
+  // Send all profiles so every slot is in sync
+  sendAllProfiles();
+}
 
-    const header = 'No,Timestamp,Weight (kg),Weight (lbs),Weight (st lbs),Raw Bytes\n';
-    const rows   = readings.map((r, i) =>
-      `${i+1},"${r.ts}",${r.kg},${r.lbs},"${r.st}","${r.rawHex}"`
-    ).join('\n');
+function setProfileStatus(u, cls, msg) {
+  const el = document.getElementById(`status-${u}`);
+  el.className = 'profile-status' + (cls ? ` ${cls}` : '');
+  el.textContent = msg;
+}
 
-    const blob = new Blob([header + rows], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `crane-scale-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+// ── Send all configured profiles to the scale ─────────────────────────────────
+// Called once on connect and whenever a profile is saved.
+// The scale stores all 4 slots and auto-selects by weight on each measurement.
+function sendAllProfiles() {
+  if (!characteristic) return;
+  let sent = 0;
+  for (let u = 1; u <= 4; u++) {
+    const saved = localStorage.getItem(`crane-user-${u}`);
+    if (!saved) continue;
+    const p = JSON.parse(saved);
+    if (!p.height || !p.dob) continue; // skip incomplete profiles
+    const cmd = buildProfileCommand(u, p);
+    const hex = Array.from(cmd).map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('-');
+    characteristic.writeValueWithResponse(cmd)
+      .catch(() => characteristic.writeValueWithoutResponse(cmd))
+      .then(() => setProfileStatus(u, 'ok', `✓ Loaded into scale: ${hex}`))
+      .catch(err => setProfileStatus(u, 'err', `✗ Failed: ${err.message}`));
+    addRawLine(`// Load profile slot ${u}: ${hex}`, false, true, false);
+    sent++;
+  }
+  if (sent === 0) addRawLine('// No complete profiles to send — fill in profiles first', false, false, false);
+}
+
+// ── Active user (labelling only — does not write to scale) ────────────────────
+function setActiveUser(u) {
+  activeUser = u;
+  document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`ubtn-${u}`).classList.add('active');
+
+  if (u === 0) {
+    document.getElementById('active-user-display').textContent = '';
+    document.getElementById('comp-user-label').textContent     = '';
+    document.getElementById('comp-note').textContent           = 'No profile selected';
+    return;
   }
 
-  // ── Clear log ─────────────────────────────────────────────────────────────────
-  function clearLog() {
-    if (readings.length > 0 && !confirm('Clear all readings?')) return;
-    readings   = [];
-    rowCounter = 0;
-    document.getElementById('log-tbody').innerHTML     = '';
-    document.getElementById('log-table').style.display = 'none';
-    document.getElementById('empty-msg').style.display = 'block';
-    document.getElementById('log-count').textContent   = '0 readings';
-    document.getElementById('btn-export').disabled     = true;
-    document.getElementById('stat-count').textContent  = '0';
-    document.getElementById('stat-min').textContent    = '--';
-    document.getElementById('stat-max').textContent    = '--';
-    document.getElementById('stat-avg').textContent    = '--';
-    document.getElementById('weight-display').textContent = '--.-';
-    document.getElementById('weight-display').className   = 'idle';
-    document.getElementById('last-time').textContent   = '';
+  const saved = localStorage.getItem(`crane-user-${u}`);
+  const name  = saved ? (JSON.parse(saved).name || `User ${u}`) : `User ${u}`;
+  document.getElementById('active-user-display').textContent = `Active: ${name}`;
+  document.getElementById('comp-user-label').textContent     = name;
+  document.getElementById('comp-note').textContent           = 'Step on scale to read';
+}
+
+// ── BLE ───────────────────────────────────────────────────────────────────────
+async function connectScale() {
+  if (!navigator.bluetooth) {
+    setStatus('error', 'WEB BLUETOOTH NOT SUPPORTED');
+    alert('Use Chrome or Edge on desktop/Android.');
+    return;
+  }
+  setStatus('connecting', 'SCANNING...');
+  document.getElementById('btn-connect').disabled = true;
+
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }],
+      optionalServices: ['f000ffc0-0451-4000-b000-000000000000']
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    setStatus('connecting', 'CONNECTING...');
+
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', onData);
+
+    setStatus('connected', 'CONNECTED');
+    document.getElementById('btn-connect').style.display    = 'none';
+    document.getElementById('btn-disconnect').style.display = 'block';
+    addRawLine(`// Connected to ${device.name || 'Crane Scale'}`, false, false, false);
+
+    // Load all configured profiles into the scale's 4 slots.
+    // The scale will auto-select by weight on each measurement.
+    sendAllProfiles();
+
+  } catch (err) {
+    if (err.name !== 'NotFoundError') {
+      setStatus('error', 'ERROR');
+      addRawLine(`// Error: ${err.message}`, false, false, false);
+    } else {
+      setStatus('', 'DISCONNECTED');
+    }
+    document.getElementById('btn-connect').disabled = false;
+  }
+}
+
+function disconnectScale() {
+  if (device && device.gatt.connected) device.gatt.disconnect();
+}
+
+function onDisconnected() {
+  characteristic = null;
+  setStatus('', 'DISCONNECTED');
+  document.getElementById('btn-connect').style.display    = 'block';
+  document.getElementById('btn-connect').disabled         = false;
+  document.getElementById('btn-disconnect').style.display = 'none';
+  addRawLine('// Disconnected', false, false, false);
+}
+
+// ── Data handler ──────────────────────────────────────────────────────────────
+function onData(event) {
+  const value = event.target.value;
+  const bytes = Array.from({length: value.byteLength}, (_, i) => value.getUint8(i));
+  const hex   = bytes.map(b => b.toString(16).padStart(2,'0').toUpperCase()).join('-');
+
+  const isWeight = bytes[0] === 0xE7 && bytes[1] === 0x58 && bytes.length >= 5;
+  const isComp   = bytes[0] === 0xE7 && bytes[1] === 0x59;
+
+  addRawLine(`${new Date().toLocaleTimeString()}  ${hex}`, isWeight, false, isComp);
+
+  if (isWeight) {
+    const raw = (bytes[3] << 8) | bytes[4];
+    pendingWeight    = raw / 20;
+    pendingWeightHex = hex;
+    updateWeightDisplay(pendingWeight);
+
+    // Auto-detect active user by weight proximity (when no user is manually selected).
+    // The scale picks its stored profile the same way — by weight range.
+    if (activeUser === 0) {
+      let best = 0, bestDiff = 15; // tolerance: 15 kg
+      for (let u = 1; u <= 4; u++) {
+        const s = localStorage.getItem(`crane-user-${u}`);
+        if (!s) continue;
+        const diff = Math.abs(parseFloat(JSON.parse(s).weight || 0) - pendingWeight);
+        if (diff < bestDiff) { bestDiff = diff; best = u; }
+      }
+      if (best > 0) setActiveUser(best);
+    }
+
+    // Flash user-selector if still no profile matched
+    if (activeUser === 0) {
+      const row = document.querySelector('.user-select-row');
+      row.classList.remove('warn-flash');
+      void row.offsetWidth;
+      row.classList.add('warn-flash');
+    }
+
+    // Wait up to 2.5s for a comp packet; if none, fall back to estimation
+    clearTimeout(pendingTimer);
+    pendingTimer = setTimeout(() => {
+      if (pendingWeight !== null) {
+        const kgNow  = pendingWeight;
+        const hexNow = pendingWeightHex;
+        const saved  = activeUser > 0 ? localStorage.getItem(`crane-user-${activeUser}`) : null;
+        const est    = saved ? estimateComp(kgNow, JSON.parse(saved)) : null;
+        if (est) updateCompDisplay(est, kgNow);
+        logReading(kgNow, est, hexNow);
+        pendingWeight = null;
+      }
+    }, 2500);
   }
 
-  // ── Raw feed ──────────────────────────────────────────────────────────────────
-  function addRawLine(text, isWeight) {
-    const feed  = document.getElementById('raw-feed');
-    const span  = document.createElement('span');
-    span.className = 'raw-line' + (isWeight ? ' weight-packet' : '');
-    span.textContent = text;
-    feed.appendChild(span);
-    // Keep last 80 lines
-    while (feed.children.length > 80) feed.removeChild(feed.firstChild);
-    feed.scrollTop = feed.scrollHeight;
+  if (isComp) {
+    logToProbe(hex, bytes);
+
+    // Only process E7-59 if we have a pending weight to pair with.
+    // Ignore stale packets (e.g. acks from profile writes).
+    if (pendingWeight !== null) {
+      clearTimeout(pendingTimer);
+      const comp = parseComp(bytes);
+      updateCompDisplay(comp, pendingWeight);
+      logReading(pendingWeight, comp, pendingWeightHex);
+      pendingWeight = null;
+    }
+  }
+}
+
+// ── Parse E7-59 ───────────────────────────────────────────────────────────────
+// Tentative byte map based on TI CC254x family. Positions will be confirmed
+// once real non-zero data is captured via the probe log.
+// [2][3] fat% * 10  [4][5] water% * 10  [6][7] muscle% * 10
+// [8]    bone * 10  [9][10] BMR kcal
+function parseComp(bytes) {
+  if (!bytes || bytes.length < 9) return null;
+  if (bytes.slice(2).every(b => b === 0)) return null; // all zeros = no profile
+
+  const fat    = ((bytes[2] << 8) | bytes[3]) / 10;
+  const water  = ((bytes[4] << 8) | bytes[5]) / 10;
+  const muscle = ((bytes[6] << 8) | bytes[7]) / 10;
+  const bone   = bytes[8] / 10;
+  const bmr    = bytes.length > 10 ? ((bytes[9] << 8) | bytes[10]) : 0;
+
+  // Basic sanity check -- if values look implausible, flag for review
+  if (fat > 80 || water > 80 || muscle > 80) return { raw: true, fat, water, muscle, bone, bmr };
+  return { fat, water, muscle, bone, bmr };
+}
+
+// ── Estimate body composition from profile (fallback when no E7-59) ─────────
+// Fat%: Deurenberg (1991) — (1.20×BMI) + (0.23×age) − (10.8×sex) − 5.4
+// BMR:  Mifflin-St Jeor — 10×kg + 6.25×height_cm − 5×age ± constant
+// Water/Muscle: empirical approximations from fat%.
+// Returns { fat, water, muscle, bone:null, bmr, bmi, estimated:true } or null.
+function estimateComp(kg, p) {
+  if (!p || !p.height || !p.dob) return null;
+  const heightM  = parseFloat(p.height) / 100;
+  const heightCm = parseFloat(p.height);
+  if (!heightM || heightM < 1 || heightM > 2.5) return null;
+  const age = getAge(p.dob);
+  if (!age || age < 10) return null;
+  const sex = p.gender === '1' ? 1 : 0;   // 1 = male, 0 = female
+  const bmi = kg / (heightM * heightM);
+  let fat = (1.20 * bmi) + (0.23 * age) - (10.8 * sex) - 5.4;
+  fat = Math.max(3, Math.min(60, fat));
+  const water  = Math.max(30, Math.min(75, 73.3 - fat * 0.62));   // Kyle 2001 approx.
+  const muscle = Math.max(10, Math.min(60, (100 - fat) * 0.45));  // ~45% of lean mass
+  const bmr    = Math.round((10 * kg) + (6.25 * heightCm) - (5 * age) + (sex === 1 ? 5 : -161));
+  return {
+    fat:       parseFloat(fat.toFixed(1)),
+    water:     parseFloat(water.toFixed(1)),
+    muscle:    parseFloat(muscle.toFixed(1)),
+    bone:      null,
+    bmr,
+    bmi:       parseFloat(bmi.toFixed(1)),
+    estimated: true
+  };
+}
+
+function updateWeightDisplay(kg) {
+  const el = document.getElementById('weight-display');
+  el.textContent = kg.toFixed(1);
+  el.classList.remove('idle', 'flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+  // Update inline conversion badges
+  const lbs   = (kg * 2.20462).toFixed(1);
+  const totalL = kg * 2.20462;
+  const st    = `${Math.floor(totalL/14)} st ${(totalL%14).toFixed(1)}`;
+  const lbsEl = document.getElementById('weight-lbs');
+  const stEl  = document.getElementById('weight-st');
+  if (lbsEl) lbsEl.textContent = `${lbs} lbs`;
+  if (stEl)  stEl.textContent  = st;
+  document.getElementById('last-time').textContent = `Last reading: ${new Date().toLocaleString('en-GB')}`;
+}
+
+function updateCompDisplay(comp, kg) {
+  const ids = ['comp-fat','comp-water','comp-muscle','comp-bone','comp-bmr','comp-bmi'];
+
+  if (!comp) {
+    ids.forEach(id => document.getElementById(id).className = 'comp-value zero');
+    document.getElementById('comp-note').textContent = 'Body comp: no profile data (E7-59 all zeros)';
+    return;
   }
 
-  // ── Status ────────────────────────────────────────────────────────────────────
-  function setStatus(cls, text) {
-    const badge = document.getElementById('status-badge');
-    badge.className = cls ? `${cls}` : '';
-    badge.textContent = text;
+  const set = (id, val, suffix) => {
+    const el = document.getElementById(id);
+    el.textContent = (val === null || isNaN(val) || val === 0) ? `--${suffix}` : `${val.toFixed(1)}${suffix}`;
+    el.className   = (val === null || isNaN(val) || val === 0) ? 'comp-value zero' : 'comp-value';
+  };
+
+  set('comp-fat',    comp.fat,    '%');
+  set('comp-water',  comp.water,  '%');
+  set('comp-muscle', comp.muscle, '%');
+  set('comp-bone',   comp.bone,   ' kg');
+
+  const bmrEl = document.getElementById('comp-bmr');
+  bmrEl.textContent = comp.bmr ? `${comp.bmr} kcal` : '-- kcal';
+  bmrEl.className   = comp.bmr ? 'comp-value' : 'comp-value zero';
+
+  // BMI: prefer value from estimateComp, otherwise calculate from kg + profile
+  const bmiEl = document.getElementById('comp-bmi');
+  let bmiVal  = comp.bmi || null;
+  if (!bmiVal && kg && activeUser > 0) {
+    const savedU = localStorage.getItem(`crane-user-${activeUser}`);
+    if (savedU) {
+      const p  = JSON.parse(savedU);
+      const hm = parseFloat(p.height) / 100;
+      if (hm > 0) bmiVal = kg / (hm * hm);
+    }
   }
+  if (bmiVal) {
+    bmiEl.textContent = bmiVal.toFixed(1);
+    bmiEl.className   = 'comp-value';
+  } else {
+    bmiEl.textContent = '--';
+    bmiEl.className   = 'comp-value zero';
+  }
+
+  const note = comp.estimated
+    ? '★ Estimated values (Deurenberg / Mifflin-St Jeor) — no E7-59 received'
+    : comp.raw
+      ? '⚠ Values may need byte-position adjustment — check probe log'
+      : 'Live body composition data';
+  document.getElementById('comp-note').textContent = note;
+}
+
+function logToProbe(hex, bytes) {
+  const probe   = document.getElementById('probe-log');
+  const allZero = bytes.slice(2).every(b => b === 0);
+  const line    = document.createElement('div');
+  line.style.color = allZero ? 'var(--muted)' : 'var(--accent2)';
+
+  let annotation = allZero ? ' ← all zeros (no profile accepted)' : ' ← HAS DATA';
+  if (!allZero) {
+    // Show tentative decode alongside raw bytes for cross-checking
+    const fat    = ((bytes[2] << 8) | bytes[3]) / 10;
+    const water  = ((bytes[4] << 8) | bytes[5]) / 10;
+    const muscle = ((bytes[6] << 8) | bytes[7]) / 10;
+    const bone   = bytes[8] / 10;
+    annotation  += `  fat:${fat} water:${water} muscle:${muscle} bone:${bone}`;
+  }
+
+  line.textContent = `${new Date().toLocaleTimeString()}  ${hex}${annotation}`;
+  probe.appendChild(line);
+  while (probe.children.length > 40) probe.removeChild(probe.firstChild);
+  probe.scrollTop = probe.scrollHeight;
+}
+
+// ── Log reading ───────────────────────────────────────────────────────────────
+function logReading(kg, comp, rawHex) {
+  const ts      = new Date().toLocaleString('en-GB');
+  const lbs     = (kg * 2.20462).toFixed(1);
+  const totalL  = kg * 2.20462;
+  const stStr   = `${Math.floor(totalL/14)} st ${(totalL%14).toFixed(1)}`;
+
+  const saved   = activeUser > 0 ? localStorage.getItem(`crane-user-${activeUser}`) : null;
+  const userName = saved ? (JSON.parse(saved).name || `User ${activeUser}`) : (activeUser > 0 ? `User ${activeUser}` : '—');
+
+  readings.push({ ts, kg, lbs, st: stStr, user: userName, comp, rawHex });
+  updateStats();
+
+  rowCounter++;
+  const tr  = document.createElement('tr');
+  const est = comp && comp.estimated;
+  const pfx = est ? '~' : '';
+  const compCls = `comp-td${est ? ' estimated' : ''}`;
+  tr.className = 'new-row';
+  tr.innerHTML = `
+    <td>${rowCounter}</td>
+    <td>${ts}</td>
+    <td class="user-cell">${userName}</td>
+    <td class="weight-cell">${kg.toFixed(1)}</td>
+    <td>${lbs}</td>
+    <td>${stStr}</td>
+    <td class="${compCls}">${comp                         ? pfx+comp.fat.toFixed(1)+'%'    : '—'}</td>
+    <td class="${compCls}">${comp                         ? pfx+comp.water.toFixed(1)+'%'  : '—'}</td>
+    <td class="${compCls}">${comp                         ? pfx+comp.muscle.toFixed(1)+'%' : '—'}</td>
+    <td class="${compCls}">${comp && comp.bone !== null   ? pfx+comp.bone.toFixed(1)+' kg' : '—'}</td>
+    <td class="${compCls}">${comp && comp.bmr             ? comp.bmr                       : '—'}</td>
+    <td class="raw-cell">${rawHex.slice(0,20)}…</td>
+  `;
+  const tbody = document.getElementById('log-tbody');
+  tbody.insertBefore(tr, tbody.firstChild);
+
+  document.getElementById('empty-msg').style.display = 'none';
+  document.getElementById('log-table').style.display = 'table';
+  document.getElementById('log-count').textContent   = `${readings.length} reading${readings.length !== 1?'s':''}`;
+  document.getElementById('btn-export').disabled     = false;
+}
+
+function updateStats() {
+  const w = readings.map(r => r.kg);
+  document.getElementById('stat-count').textContent = w.length;
+  document.getElementById('stat-min').textContent   = `${Math.min(...w).toFixed(1)} kg`;
+  document.getElementById('stat-max').textContent   = `${Math.max(...w).toFixed(1)} kg`;
+  document.getElementById('stat-avg').textContent   = `${(w.reduce((a,b)=>a+b,0)/w.length).toFixed(1)} kg`;
+}
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!readings.length) return;
+  const hdr  = 'No,Timestamp,User,Weight (kg),Weight (lbs),Weight (st),Fat%,Water%,Muscle%,Bone kg,BMR kcal,Estimated,Raw Bytes\n';
+  const rows = readings.map((r,i) => {
+    const c = r.comp;
+    return `${i+1},"${r.ts}","${r.user}",${r.kg},${r.lbs},"${r.st}",${c?c.fat.toFixed(1):''},${c?c.water.toFixed(1):''},${c?c.muscle.toFixed(1):''},${c&&c.bone!==null?c.bone.toFixed(1):''},${c&&c.bmr?c.bmr:''},${c?!!c.estimated:''},"${r.rawHex}"`;
+  }).join('\n');
+  // UTF-8 BOM (\uFEFF) ensures Excel opens with correct encoding
+  const blob = new Blob(['\uFEFF' + hdr + rows], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {href:url, download:`crane-scale-${new Date().toISOString().slice(0,10)}.csv`});
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Clear log ─────────────────────────────────────────────────────────────────
+function clearLog() {
+  if (readings.length && !confirm('Clear all readings?')) return;
+  readings = []; rowCounter = 0;
+  document.getElementById('log-tbody').innerHTML     = '';
+  document.getElementById('log-table').style.display = 'none';
+  document.getElementById('empty-msg').style.display = 'block';
+  document.getElementById('log-count').textContent   = '0 readings';
+  document.getElementById('btn-export').disabled     = true;
+  ['stat-count','stat-min','stat-max','stat-avg'].forEach(id =>
+    document.getElementById(id).textContent = id==='stat-count' ? '0' : '--'
+  );
+  document.getElementById('weight-display').textContent = '--.-';
+  document.getElementById('weight-display').className   = 'idle';
+  document.getElementById('last-time').textContent      = '';
+  const lbsEl = document.getElementById('weight-lbs');
+  const stEl  = document.getElementById('weight-st');
+  if (lbsEl) lbsEl.textContent = '-- lbs';
+  if (stEl)  stEl.textContent  = '-- st';
+}
+
+// ── Raw feed ──────────────────────────────────────────────────────────────────
+function addRawLine(text, isWeight, isWrite, isComp) {
+  const feed = document.getElementById('raw-feed');
+  const span = document.createElement('span');
+  span.className = 'raw-line' + (isWeight?' weight-packet':isComp?' comp-packet':isWrite?' write-packet':'');
+  span.textContent = text;
+  feed.appendChild(span);
+  while (feed.children.length > 100) feed.removeChild(feed.firstChild);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ── Tab / form nav ────────────────────────────────────────────────────────────
+function showTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+
+function showUserForm(u, el) {
+  document.querySelectorAll('.user-form').forEach(f => f.classList.remove('active'));
+  document.querySelectorAll('#profile-user-tabs .user-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`form-user-${u}`).classList.add('active');
+  el.classList.add('active');
+}
+
+function setStatus(cls, text) {
+  const badge = document.getElementById('status-badge');
+  badge.className = cls || '';
+  badge.textContent = text;
+  // Drive the inline connection-panel dot
+  const dot  = document.getElementById('conn-dot');
+  const info = document.getElementById('conn-status-text');
+  if (dot) {
+    dot.className = 'conn-dot' + (cls === 'connected' ? ' on' : cls === 'connecting' ? ' blink' : '');
+  }
+  if (info) info.textContent = text;
+}
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  localStorage.setItem('crane-theme', next);
+  document.getElementById('theme-toggle').textContent = next === 'dark' ? '☀' : '☾';
+}
+(function applyTheme() {
+  const saved = localStorage.getItem('crane-theme') || 'dark';
+  document.documentElement.dataset.theme = saved;
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = saved === 'dark' ? '☀' : '☾';
+})();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadProfiles();
+refreshUserButtons();
 </script>
 </body>
 </html>
